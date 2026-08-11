@@ -100,6 +100,12 @@ round: upgrade the image before upgrading the database.
    `PG_MAJOR` as a build argument, the database and S3 credentials linked from the
    project's own services, and the `BACKUP_*` values set manually. The cheapest plan
    is plenty.
+
+   **Link `URL_PLAIN`, not `URL`, into `DATABASE_URL`.** rock8's `URL` key is the
+   "libpq-compatible" one and carries `uselibpqcompat=true`, which `pg_dump` rejects
+   outright (`invalid URI query parameter`). The service also has no listener, so
+   leave the health endpoint unset and treat `containerPort` as a formality —
+   the platform is happy without one.
 4. **A healthchecks.io check** in `HEALTHCHECK_URL`. If the container is gone
    altogether, only something outside it can notice that no ping arrived — and a
    backup that quietly stopped months ago is the ordinary way this fails.

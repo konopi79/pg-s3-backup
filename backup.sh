@@ -32,6 +32,7 @@ if [[ "$(date '+%d')" == "01" ]]; then TIER="monthly"; fi
 
 backup_database() {
   local key="db/$TIER/$BACKUP_NAME-$STAMP.dump.age" size
+  local -a stages
   log "database -> $key"
 
   # -Fc so pg_restore can go table by table; age so the storage provider -- and
@@ -41,9 +42,18 @@ backup_database() {
     age --recipient "$AGE_RECIPIENT" |
     rclone rcat "dest:$BACKUP_BUCKET/$key"
 
-  # An empty object is the classic silent failure: the pipe produces one anyway.
-  size="$(rclone size --json "dest:$BACKUP_BUCKET/$key" | jq -r '.bytes')"
+  # Checked by hand, because `set -e` does not fire here: this function is called
+  # inside an `||` list, which disables it for the whole body. Without this a
+  # pg_dump that died halfway would upload a truncated dump and, being over the
+  # size floor below, pass for a good one.
+  stages=("${PIPESTATUS[@]}")
   # `return`, not `die`: the files half and the failure ping still have to happen.
+  ((stages[0] == 0)) || { log "pg_dump failed (exit ${stages[0]})"; return 1; }
+  ((stages[1] == 0)) || { log "age failed (exit ${stages[1]})"; return 1; }
+  ((stages[2] == 0)) || { log "upload failed (exit ${stages[2]})"; return 1; }
+
+  # And an empty object is the other silent failure: the pipe produces one anyway.
+  size="$(rclone size --json "dest:$BACKUP_BUCKET/$key" | jq -r '.bytes')"
   ((size >= 1024)) || { log "uploaded dump is only ${size} B"; return 1; }
   log "database ok (${size} B)"
 }
