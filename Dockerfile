@@ -19,8 +19,20 @@ ARG PG_MAJOR=17
 FROM postgres:${PG_MAJOR}-bookworm
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends bash rclone age jq curl ca-certificates tzdata cron \
+  && apt-get install -y --no-install-recommends bash age jq curl ca-certificates tzdata cron \
   && rm -rf /var/lib/apt/lists/*
+
+# rclone comes from upstream, not from apt: bookworm ships 1.60 (2022), which R2
+# answers with `501 NotImplemented` on upload. Pinned rather than "current", so a
+# rebuild a year from now produces the same image.
+ARG RCLONE_VERSION=1.75.0
+# No default: BuildKit fills TARGETARCH in automatically, and giving it one here
+# would override that and fetch an amd64 package on an arm64 builder.
+ARG TARGETARCH
+RUN curl -fsSL -o /tmp/rclone.deb \
+  "https://downloads.rclone.org/v${RCLONE_VERSION}/rclone-v${RCLONE_VERSION}-linux-${TARGETARCH}.deb" \
+  && dpkg -i /tmp/rclone.deb \
+  && rm /tmp/rclone.deb
 
 # Cron fires on local time and the projects are Czech; the small hours are quiet.
 ENV TZ=Europe/Prague
