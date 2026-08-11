@@ -54,7 +54,7 @@ backup_database() {
 
   # And an empty object is the other silent failure: the pipe produces one anyway.
   size="$(rclone size --json "dest:$BACKUP_BUCKET/$key" | jq -r '.bytes')"
-  ((size >= 1024)) || { log "uploaded dump is only ${size} B"; return 1; }
+  ((size >= MIN_DUMP_BYTES)) || { log "uploaded dump is only ${size} B"; return 1; }
   log "database ok (${size} B)"
 }
 

@@ -36,10 +36,15 @@ resolve_key() {
     # bucket holding more than one. Sort on the modification time instead, and narrow
     # to this project's dumps when a name is given.
     if [[ -n "${BACKUP_NAME:-}" ]]; then filter=(--include "*/$BACKUP_NAME-*"); fi
-    line="$(rclone lsf --files-only --recursive --format tp --separator '|' \
-      "${filter[@]}" "dest:$BACKUP_BUCKET/db/" | sort | tail -1)"
-    [[ -n "$line" ]] || die "no dumps under db/${BACKUP_NAME:+ for $BACKUP_NAME}"
-    key="db/${line#*|}"
+    # Objects below the floor are failed runs -- an age header over an empty dump
+    # is about 200 bytes -- and they stay in the bucket, because nothing in the
+    # backup path is allowed to delete. Skipping them here is what stops "latest"
+    # from handing back this morning's failure at the worst possible moment.
+    line="$(rclone lsf --files-only --recursive --format tsp --separator '|' \
+      "${filter[@]}" "dest:$BACKUP_BUCKET/db/" |
+      awk -F'|' -v floor="$MIN_DUMP_BYTES" '$2 >= floor' | sort | tail -1)"
+    [[ -n "$line" ]] || die "no usable dump under db/${BACKUP_NAME:+ for $BACKUP_NAME}"
+    key="db/${line##*|}"
     log "latest dump is $key"
   fi
   printf '%s' "$key"
@@ -58,10 +63,16 @@ cmd_list() {
 }
 
 cmd_into() {
-  local key="$1" target="${2:-}"
+  local key="$1" target="${2:-}" size
   [[ -n "$target" ]] || usage
   configure_dest
   key="$(resolve_key "$key")"
+
+  # Also checked for an explicitly named key, so that reaching for one by hand in
+  # a hurry cannot restore a failed run over a live database.
+  size="$(rclone size --json "dest:$BACKUP_BUCKET/$key" | jq -r '.bytes')"
+  ((size >= MIN_DUMP_BYTES)) ||
+    die "$key is only ${size} B -- that is a failed run, not a dump"
 
   log "restoring $key into $(redact "$target")"
   # --clean --if-exists so a half-finished attempt can simply be repeated; without

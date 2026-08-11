@@ -4,6 +4,12 @@
 # remote configured one way for writing and another way for reading is a bug that
 # only shows up on the day of a restore -- so the configuration lives in one place.
 
+# Smallest plausible dump. A pg_dump that produced nothing still yields an object
+# -- age's header over an empty input is about 200 bytes -- so this is the line
+# between "a backup" and "a file". Used when writing one and again when reading
+# one back, since a failed run stays in the bucket forever: nothing here deletes.
+MIN_DUMP_BYTES="${MIN_DUMP_BYTES:-1024}"
+
 # Logs go to stderr, always: some of these functions return a value on stdout, and
 # a log line landing in a captured result produces a corrupt object key rather than
 # an error. (It did, the first time this was rehearsed.)
