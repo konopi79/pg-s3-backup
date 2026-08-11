@@ -10,10 +10,12 @@
 # Getting it wrong now fails loudly and early instead: a client older than the server
 # makes pg_dump refuse outright, on the very first run after a deploy.
 #
-# Debian, not Alpine, and that is not a preference. Alpine's musl resolver ignores
-# the `ndots` option and treats any dotted name as fully qualified, so it never
-# appends the `search` domains from resolv.conf -- and an in-cluster database host
-# like `…-postgres-….<namespace>.svc` simply fails to resolve. glibc handles it.
+# Debian rather than Alpine: glibc's resolver follows resolv.conf's `ndots` and
+# search domains, which is what an in-cluster hostname like
+# `…-postgres-….<namespace>.svc` relies on. musl handles that differently and it
+# is not worth finding out the hard way in a backup. (The DNS failures seen while
+# bringing this up turned out to be a start-up race rather than the resolver --
+# see the retry in entrypoint.sh -- so this is caution, not a diagnosis.)
 # The image is bigger; it runs for ten seconds a day.
 ARG PG_MAJOR=17
 FROM postgres:${PG_MAJOR}-bookworm
