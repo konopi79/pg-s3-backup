@@ -105,7 +105,14 @@ round: upgrade the image before upgrading the database.
    "libpq-compatible" one and carries `uselibpqcompat=true`, which `pg_dump` rejects
    outright (`invalid URI query parameter`). The service also has no listener, so
    leave the health endpoint unset and treat `containerPort` as a formality —
-   the platform is happy without one.
+   the platform is happy without one, though each deploy sits in
+   `waiting-for-healthcheck` for several minutes before going live.
+
+   **Run exactly one replica.** This is a cron, not a server: every replica keeps its
+   own copy of the schedule, so two of them means two simultaneous `pg_dump`s against
+   the production database every night, racing to write the same object. There is
+   deliberately no lock in the script to paper over this — a backup that decides for
+   itself not to run is worse than one that runs twice.
 4. **A healthchecks.io check** in `HEALTHCHECK_URL`. If the container is gone
    altogether, only something outside it can notice that no ping arrived — and a
    backup that quietly stopped months ago is the ordinary way this fails.
