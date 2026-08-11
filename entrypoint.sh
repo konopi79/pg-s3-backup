@@ -12,8 +12,13 @@ export -p >/etc/backup.env
 chmod 600 /etc/backup.env
 
 SCHEDULE="${BACKUP_CRON:-17 2 * * *}"
-printf '%s bash -c ". /etc/backup.env; /usr/local/bin/backup.sh" >> /proc/1/fd/1 2>&1\n' \
-  "$SCHEDULE" >/etc/crontabs/root
+# /etc/cron.d entries carry a user field, and the job's output is redirected to
+# PID 1's stdout so it lands in the platform's log rather than in a syslog daemon
+# this image does not run. Sourcing the env file also restores PATH -- cron's own
+# is too narrow to contain pg_dump.
+printf 'CRON_TZ=%s\n%s root bash -c ". /etc/backup.env; /usr/local/bin/backup.sh" >> /proc/1/fd/1 2>&1\n' \
+  "${TZ:-UTC}" "$SCHEDULE" >/etc/cron.d/backup
+chmod 0644 /etc/cron.d/backup
 log "${BACKUP_NAME:-backup}: schedule $SCHEDULE (TZ=$TZ)"
 
 # A deploy immediately proves the whole chain works instead of leaving it to be
@@ -24,4 +29,4 @@ if [[ "${RUN_ON_START:-true}" == "true" ]]; then
   /usr/local/bin/backup.sh || log "initial run FAILED -- staying up, the cron will retry"
 fi
 
-exec crond -f -L /dev/stdout
+exec cron -f

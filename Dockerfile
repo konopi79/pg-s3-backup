@@ -9,10 +9,18 @@
 #
 # Getting it wrong now fails loudly and early instead: a client older than the server
 # makes pg_dump refuse outright, on the very first run after a deploy.
+#
+# Debian, not Alpine, and that is not a preference. Alpine's musl resolver ignores
+# the `ndots` option and treats any dotted name as fully qualified, so it never
+# appends the `search` domains from resolv.conf -- and an in-cluster database host
+# like `…-postgres-….<namespace>.svc` simply fails to resolve. glibc handles it.
+# The image is bigger; it runs for ten seconds a day.
 ARG PG_MAJOR=17
-FROM postgres:${PG_MAJOR}-alpine
+FROM postgres:${PG_MAJOR}-bookworm
 
-RUN apk add --no-cache bash rclone age jq curl tzdata
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends bash rclone age jq curl ca-certificates tzdata cron \
+  && rm -rf /var/lib/apt/lists/*
 
 # Cron fires on local time and the projects are Czech; the small hours are quiet.
 ENV TZ=Europe/Prague
