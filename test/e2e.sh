@@ -32,6 +32,14 @@ SCRATCH_DB=restore_check
 S3_KEY=e2etestkey
 S3_SECRET=e2etestsecret
 
+# The fixtures are pinned, the subject under test is not. `postgres:$PG_MAJOR-bookworm`
+# below is deliberately a moving tag: it is what the Dockerfile builds from, and this
+# test exists to find out when that stops working. MinIO is the opposite -- it only
+# stands in for the off-site bucket, so a release of it landing on an unrelated commit
+# has no business turning the build red. Bump these by hand, deliberately.
+MINIO_IMAGE=minio/minio:RELEASE.2025-09-07T16-13-09Z
+MC_IMAGE=minio/mc:RELEASE.2025-08-13T08-35-41Z
+
 say() { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
 fail() {
   printf '\n\033[1;31mFAIL: %s\033[0m\n' "$*" >&2
@@ -57,7 +65,7 @@ wait_for() {
   fail "$what never became ready"
 }
 
-mc() { docker run --rm --network "$NET" --entrypoint sh minio/mc:latest -c "$1"; }
+mc() { docker run --rm --network "$NET" --entrypoint sh "$MC_IMAGE" -c "$1"; }
 MC_ALIAS="mc alias set d http://$MINIO:9000 $S3_KEY $S3_SECRET >/dev/null"
 
 say "network"
@@ -71,7 +79,7 @@ wait_for postgres docker exec "$PG" pg_isready -U postgres
 say "minio"
 docker run -d --name "$MINIO" --network "$NET" \
   -e "MINIO_ROOT_USER=$S3_KEY" -e "MINIO_ROOT_PASSWORD=$S3_SECRET" \
-  minio/minio:latest server /data >/dev/null
+  "$MINIO_IMAGE" server /data >/dev/null
 wait_for minio mc "$MC_ALIAS"
 
 say "buckets"
@@ -85,7 +93,7 @@ docker exec "$PG" psql -U postgres -d "$APP_DB" --quiet -c "
   CREATE TABLE notes (id serial PRIMARY KEY, body text NOT NULL, at timestamptz DEFAULT now());
   INSERT INTO notes (body) SELECT md5(g::text) || repeat('x', 40) FROM generate_series(1, $ROWS) g;"
 for n in 1 2 3; do printf 'upload %s\n' "$n" >"$WORK/file$n.txt"; done
-docker run --rm --network "$NET" -v "$WORK:/w" --entrypoint sh minio/mc:latest \
+docker run --rm --network "$NET" -v "$WORK:/w" --entrypoint sh "$MC_IMAGE" \
   -c "$MC_ALIAS && mc cp /w/file1.txt /w/file2.txt /w/file3.txt d/$SRC_BUCKET/" >/dev/null
 
 say "build image (PG_MAJOR=$PG_MAJOR)"
@@ -151,7 +159,7 @@ say "check: a failed run cannot become 'latest'"
 # forever -- newer, by modification time, than the good dump beside it. The size
 # floor in resolve_key is the only thing standing between that and a restore.
 printf 'age-encryption.org/v1\ntruncated\n' >"$WORK/runt.age"
-docker run --rm --network "$NET" -v "$WORK:/w" --entrypoint sh minio/mc:latest \
+docker run --rm --network "$NET" -v "$WORK:/w" --entrypoint sh "$MC_IMAGE" \
   -c "$MC_ALIAS && mc cp /w/runt.age d/$DEST_BUCKET/db/daily/e2e-29991231T235959Z.dump.age" >/dev/null
 
 restore_env=(

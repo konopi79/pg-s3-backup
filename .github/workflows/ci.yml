@@ -28,12 +28,20 @@ jobs:
     name: shellcheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      # Pinned to a commit, not a tag: a tag is a movable pointer, and this action
+      # runs inside the job with the repository's token. Dependabot bumps the SHA
+      # and rewrites the comment beside it.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: shellcheck
         # -x so it follows the `source=common.sh` directives; warnings fail the build,
         # because the two it found when this job was added were both real.
+        #
+        # A version, not `:stable`. A required check that can turn red overnight on a
+        # commit nobody made -- a new release adding a check -- teaches people to
+        # merge past it, which costs more than the missed check was worth. Bump it
+        # deliberately and fix what it finds in that same change.
         run: |
-          docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:stable \
+          docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:v0.11.0 \
             -x -s bash common.sh backup.sh restore.sh entrypoint.sh test/e2e.sh
 
   e2e:
@@ -48,6 +56,9 @@ jobs:
         # *both* directions, and getting it wrong only shows at restore time.
         pg_major: ['16', '17']
     steps:
-      - uses: actions/checkout@v7
+      # Pinned to a commit, not a tag: a tag is a movable pointer, and this action
+      # runs inside the job with the repository's token. Dependabot bumps the SHA
+      # and rewrites the comment beside it.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: dump, encrypt, upload, restore, count
         run: ./test/e2e.sh ${{ matrix.pg_major }}
