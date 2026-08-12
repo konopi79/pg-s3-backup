@@ -161,6 +161,13 @@ VERIFY_DATABASE_URL='postgresql://…/restore_check' mrestore verify
 `verify` restores the newest dump and prints the row counts of the twenty largest
 tables, because a restore that reports success over an empty schema is worth nothing.
 
+It skips `CREATE EXTENSION` (`SKIP_EXTENSIONS`, default true for `verify` only). A
+managed Postgres usually has extensions a plain one does not — rock8 ships
+`pg_stat_kcache` — and restoring one stops dead on the first of them. For a real
+restore that is the correct behaviour and `into` keeps it; for the drill it would mean
+needing an identical server to hand, and a drill that can only run in one place is a
+drill that does not get run.
+
 The same drill against a local Postgres with MinIO standing in for the destination
 (`BACKUP_PROVIDER=Minio`) is how this is tested before it is pointed at anything real.
 Both `PG_MAJOR` findings above came out of exactly that rehearsal.

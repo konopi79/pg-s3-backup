@@ -77,14 +77,34 @@ cmd_into() {
   log "restoring $key into $(redact "$target")"
   # --clean --if-exists so a half-finished attempt can simply be repeated; without
   # it the second run drowns in "already exists" and hides the real errors.
-  stream_dump "$key" |
-    pg_restore --dbname="$target" --no-owner --no-privileges --clean --if-exists --exit-on-error
-  log "restore ok"
+  if [[ "${SKIP_EXTENSIONS:-false}" == "true" ]]; then
+    # A managed Postgres often has extensions a plain one does not (rock8 ships
+    # pg_stat_kcache), and CREATE EXTENSION then stops the restore dead. That is
+    # right for a real restore -- you want to know -- but it would make the drill
+    # impossible to run anywhere except on an identical server, and a drill nobody
+    # can run is a drill nobody does. Filtering needs the archive's table of
+    # contents, which needs a seekable file, so the dump is materialised here
+    # rather than streamed.
+    TMPDIR_RESTORE="$(mktemp -d)"
+    trap 'rm -rf "$TMPDIR_RESTORE"' EXIT
+    stream_dump "$key" >"$TMPDIR_RESTORE/dump"
+    pg_restore --list "$TMPDIR_RESTORE/dump" | grep -v 'EXTENSION' >"$TMPDIR_RESTORE/toc"
+    pg_restore --dbname="$target" --no-owner --no-privileges --clean --if-exists \
+      --exit-on-error --use-list="$TMPDIR_RESTORE/toc" "$TMPDIR_RESTORE/dump"
+    log "restore ok (extensions skipped)"
+  else
+    stream_dump "$key" |
+      pg_restore --dbname="$target" --no-owner --no-privileges --clean --if-exists --exit-on-error
+    log "restore ok"
+  fi
 }
 
 cmd_verify() {
   local key="${1:-latest}" target="${VERIFY_DATABASE_URL:-}"
   [[ -n "$target" ]] || die "set VERIFY_DATABASE_URL to a scratch database (it gets wiped)"
+  # The drill runs against whatever scratch server is to hand, so it does not insist
+  # on the source's extensions. A real `into` still does. Set it explicitly to override.
+  export SKIP_EXTENSIONS="${SKIP_EXTENSIONS:-true}"
   cmd_into "$key" "$target"
 
   # A restore that reports success but produces an empty schema is worth nothing,
