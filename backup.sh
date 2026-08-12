@@ -82,10 +82,21 @@ fi
 
 # A dead man's switch, off-platform on purpose: if this container is gone
 # altogether, only something outside it can notice that no ping arrived.
+#
+# Success is always reported. Only *failure* can be silenced (by the start-up
+# retry, where another attempt is coming): suppressing the whole heartbeat would
+# also swallow the success that follows, leaving the monitor showing an outage
+# through backups that actually worked. It did exactly that once.
 if [[ -n "${HEALTHCHECK_URL:-}" ]]; then
-  url="$HEALTHCHECK_URL"
-  if ((failed)); then url="$HEALTHCHECK_URL/fail"; fi
-  curl -fsS -m 10 --retry 3 -o /dev/null "$url" || log "warn: heartbeat ping failed"
+  if ((failed)); then
+    if [[ "${HEARTBEAT_ON_FAILURE:-true}" == "true" ]]; then
+      curl -fsS -m 10 --retry 3 -o /dev/null "$HEALTHCHECK_URL/fail" ||
+        log "warn: failure heartbeat ping failed"
+    fi
+  else
+    curl -fsS -m 10 --retry 3 -o /dev/null "$HEALTHCHECK_URL" ||
+      log "warn: heartbeat ping failed"
+  fi
 fi
 
 if ((failed)); then exit 1; fi

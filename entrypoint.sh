@@ -27,14 +27,15 @@ log "${BACKUP_NAME:-backup}: schedule $SCHEDULE (TZ=$TZ)"
 #
 # Retried, because a container can be running before the cluster's DNS knows about
 # its neighbours: the database hostname failed to resolve on some starts and not
-# others, seconds apart, with nothing else changed. Only the last attempt reports
-# to the heartbeat, so a slow start does not show up as a failed backup.
+# others, seconds apart, with nothing else changed. Only the last attempt may report
+# a *failure*, so a slow start does not show up as a failed backup -- but every
+# attempt reports its success, whichever one gets there.
 if [[ "${RUN_ON_START:-true}" == "true" ]]; then
   tries="${START_RETRIES:-5}"
   for attempt in $(seq 1 "$tries"); do
     log "initial run (attempt $attempt/$tries)"
     if ((attempt < tries)); then
-      if HEALTHCHECK_URL= /usr/local/bin/backup.sh; then break; fi
+      if HEARTBEAT_ON_FAILURE=false /usr/local/bin/backup.sh; then break; fi
       log "attempt $attempt failed, retrying in ${START_RETRY_DELAY:-15}s"
       sleep "${START_RETRY_DELAY:-15}"
     else
