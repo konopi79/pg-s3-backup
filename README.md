@@ -109,10 +109,16 @@ round: upgrade the image before upgrading the database.
    `waiting-for-healthcheck` for several minutes before going live.
 
    **Run exactly one replica.** This is a cron, not a server: every replica keeps its
-   own copy of the schedule, so two of them means two simultaneous `pg_dump`s against
-   the production database every night, racing to write the same object. There is
-   deliberately no lock in the script to paper over this — a backup that decides for
-   itself not to run is worse than one that runs twice.
+   own copy of the schedule, so two of them would mean two simultaneous `pg_dump`s
+   against a live database every night.
+
+   **Expect two or three extra dumps around each deploy, though — that is not a
+   replica problem.** A rollout starts a fresh pod, which immediately runs its
+   start-up backup, and rock8 rolls out more than once per deploy. Only one pod
+   survives to run the schedule; a scheduled run producing exactly one object is the
+   proof that the replica count is right, not the pod count during a deploy. The
+   spares age out with the daily retention. There is deliberately no "skip if one was
+   taken recently" rule — that is logic whose failure mode is not taking a backup.
 4. **A healthchecks.io check** in `HEALTHCHECK_URL`. If the container is gone
    altogether, only something outside it can notice that no ping arrived — and a
    backup that quietly stopped months ago is the ordinary way this fails.
