@@ -1,0 +1,53 @@
+# Two checks, and the second one is the point.
+#
+# A backup tool is the one kind of program whose bugs are invisible until the day
+# nobody can afford them. Linting the shell is cheap and catches typos; only running
+# the whole chain -- dump, encrypt, upload, fetch, decrypt, restore, count the rows --
+# catches the failures this repository has actually produced.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # A green run months ago says nothing about today: this builds from upstream
+  # package repositories, and the image is rebuilt on deploy, not shipped from here.
+  schedule:
+    - cron: '23 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: shellcheck
+        # -x so it follows the `source=common.sh` directives; warnings fail the build,
+        # because the two it found when this job was added were both real.
+        run: |
+          docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:stable \
+            -x -s bash common.sh backup.sh restore.sh entrypoint.sh test/e2e.sh
+
+  e2e:
+    name: restore drill (pg${{ matrix.pg_major }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # Both majors in use, each dumped and restored by its own client. The rule
+        # this pins down is in the README: the client major must match the server in
+        # *both* directions, and getting it wrong only shows at restore time.
+        pg_major: ['16', '17']
+    steps:
+      - uses: actions/checkout@v7
+      - name: dump, encrypt, upload, restore, count
+        run: ./test/e2e.sh ${{ matrix.pg_major }}

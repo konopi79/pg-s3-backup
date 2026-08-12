@@ -1,5 +1,7 @@
 # pg-s3-backup
 
+[![CI](https://github.com/konopi79/pg-s3-backup/actions/workflows/ci.yml/badge.svg)](https://github.com/konopi79/pg-s3-backup/actions/workflows/ci.yml)
+
 Off-site backups for an application that keeps its data in **PostgreSQL** and its
 uploads in an **S3 bucket**. One small cron container per project: it dumps the
 database, encrypts the dump, and pushes it — together with a copy of the bucket — to
@@ -162,6 +164,21 @@ tables, because a restore that reports success over an empty schema is worth not
 The same drill against a local Postgres with MinIO standing in for the destination
 (`BACKUP_PROVIDER=Minio`) is how this is tested before it is pointed at anything real.
 Both `PG_MAJOR` findings above came out of exactly that rehearsal.
+
+That rehearsal is now a script, so it runs on every change instead of when someone
+remembers. It needs nothing but Docker:
+
+```bash
+./test/e2e.sh 16        # or 17
+```
+
+It stands up Postgres and MinIO, seeds twenty thousand rows and three uploads, builds
+the image, takes a real backup, and then checks what a passing backup is actually
+supposed to mean: the object is there, it opens with an age header and contains no
+plaintext `PGDMP`, `restore verify` reports success, and the restored database counts
+back the same twenty thousand rows. CI runs it for both majors on every push, plus
+weekly — the image is built from upstream package repositories, so a green run in
+March says nothing about April.
 
 ## Security and licence
 
