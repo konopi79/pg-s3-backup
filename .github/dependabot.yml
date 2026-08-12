@@ -1,0 +1,26 @@
+# Pinning actions to a commit is only half of it: a pin nobody updates is a
+# vulnerability preserved in amber. This is the other half.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: ci
+    labels: [dependencies]
+
+# The `docker` ecosystem is deliberately absent.
+#
+# The only FROM here is `postgres:${PG_MAJOR}-bookworm`, and PG_MAJOR is not a
+# dependency to keep current -- it must match the major of the server being backed
+# up, in both directions, or the archive it writes cannot be restored (see the
+# README). An automated bump to the newest Postgres would be a green pull request
+# that silently breaks every restore, which is the exact failure this repository
+# exists to prevent. It is bumped when a database is, by the person doing that.
+#
+# rclone is pinned in the Dockerfile for the same reason it is pinned at all: the
+# version matters (bookworm's 1.60 gets `501 NotImplemented` from R2), and the URL
+# it is fetched from is not something Dependabot reads anyway. Watch its releases
+# by hand; the weekly CI run is what would notice the pin going bad.
