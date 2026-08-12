@@ -162,3 +162,12 @@ tables, because a restore that reports success over an empty schema is worth not
 The same drill against a local Postgres with MinIO standing in for the destination
 (`BACKUP_PROVIDER=Minio`) is how this is tested before it is pointed at anything real.
 Both `PG_MAJOR` findings above came out of exactly that rehearsal.
+
+## Security and licence
+
+Found a hole? [SECURITY.md](SECURITY.md) — please report it privately, not as an
+issue. It also lists what the design deliberately assumes, which is worth reading
+before you trust this with a production database.
+
+[MIT](LICENSE). Use it, fork it, ship it; there is no warranty, and a backup tool is
+exactly the kind of thing to verify yourself before relying on it.
