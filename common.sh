@@ -65,6 +65,11 @@ configure_dest() {
 
 # The application's own bucket, under whichever names the project links it.
 configure_src() {
+  # SRC_BUCKET is this function's return value, read by whichever script sourced us,
+  # and the linter cannot see across that boundary. Not `export`ed to silence it,
+  # because `export VAR="$(cmd)"` reports the exit status of `export` rather than of
+  # the substitution -- that would quietly take the `|| die` below with it.
+  # shellcheck disable=SC2034
   SRC_BUCKET="$(env_any S3_BUCKET S3_BUCKET_NAME BUCKET_NAME)" ||
     die "no source bucket (S3_BUCKET / S3_BUCKET_NAME / BUCKET_NAME)"
   local endpoint key secret
@@ -80,7 +85,9 @@ configure_src() {
   export RCLONE_CONFIG_SRC_ENDPOINT="$endpoint"
   export RCLONE_CONFIG_SRC_ACCESS_KEY_ID="$key"
   export RCLONE_CONFIG_SRC_SECRET_ACCESS_KEY="$secret"
-  export RCLONE_CONFIG_SRC_REGION="$(env_any S3_REGION AWS_REGION || echo us-east-1)"
+  local region
+  region="$(env_any S3_REGION AWS_REGION || echo us-east-1)"
+  export RCLONE_CONFIG_SRC_REGION="$region"
   # Addressing style is a genuine trap: a gateway that wants virtual-host addressing
   # answers a path-style request with an HTML page, and the S3 client can only report
   # a parse error. Path style is the safe default for self-hosted storage.
