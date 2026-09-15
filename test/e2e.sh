@@ -37,8 +37,16 @@ S3_SECRET=e2etestsecret
 # test exists to find out when that stops working. MinIO is the opposite -- it only
 # stands in for the off-site bucket, so a release of it landing on an unrelated commit
 # has no business turning the build red. Bump these by hand, deliberately.
-MINIO_IMAGE=minio/minio:RELEASE.2025-09-07T16-13-09Z
-MC_IMAGE=minio/mc:RELEASE.2025-08-13T08-35-41Z
+#
+# From quay.io, not Docker Hub. MinIO removed `minio/minio` and `minio/mc` from Hub
+# -- both are a flat 404 there, not a missing tag -- and the drill went red on a
+# commit nobody made. The same pinned releases are still published on quay.io, so
+# this is a registry change and not a version bump: quay.io serves the MinIO
+# release under sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e,
+# the same digest the last green Hub pull reported. Do not shorten these back to
+# the Hub names; there is nothing left there to pull.
+MINIO_IMAGE=quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+MC_IMAGE=quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z
 
 say() { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
 fail() {
