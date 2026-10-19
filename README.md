@@ -53,7 +53,7 @@ Postgres client version.
 | `BACKUP_CRON`                                                                  | default `17 2 * * *`, in `TZ` (default `Europe/Prague`)          |
 | `RUN_ON_START`                                                                 | default `true` — a deploy proves the chain immediately           |
 | `HEALTHCHECK_URL`                                                              | optional dead man's switch, e.g. a healthchecks.io check         |
-| `BACKUP_PROVIDER` / `BACKUP_REGION`                                            | default `Cloudflare` / `auto`; override to rehearse against MinIO |
+| `BACKUP_PROVIDER` / `BACKUP_REGION`                                            | default `Cloudflare` / `auto`; override to rehearse locally      |
 
 The application's bucket is read under whichever names the project links it:
 `S3_BUCKET` / `S3_BUCKET_NAME` / `BUCKET_NAME`, `S3_ENDPOINT` / `S3_HOST` /
@@ -168,8 +168,8 @@ restore that is the correct behaviour and `into` keeps it; for the drill it woul
 needing an identical server to hand, and a drill that can only run in one place is a
 drill that does not get run.
 
-The same drill against a local Postgres with MinIO standing in for the destination
-(`BACKUP_PROVIDER=Minio`) is how this is tested before it is pointed at anything real.
+The same drill against a local Postgres with SeaweedFS standing in for the destination
+(`BACKUP_PROVIDER=SeaweedFS`) is how this is tested before it is pointed at anything real.
 Both `PG_MAJOR` findings above came out of exactly that rehearsal.
 
 That rehearsal is now a script, so it runs on every change instead of when someone
@@ -179,7 +179,7 @@ remembers. It needs nothing but Docker:
 ./test/e2e.sh 16        # or 17
 ```
 
-It stands up Postgres and MinIO, seeds twenty thousand rows and three uploads, builds
+It stands up Postgres and SeaweedFS, seeds twenty thousand rows and three uploads, builds
 the image, takes a real backup, and then checks what a passing backup is actually
 supposed to mean: the object is there, it opens with an age header and contains no
 plaintext `PGDMP`, `restore verify` reports success, and the restored database counts

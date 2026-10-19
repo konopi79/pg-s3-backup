@@ -52,7 +52,7 @@ env_any() {
 configure_dest() {
   require BACKUP_BUCKET BACKUP_ENDPOINT BACKUP_ACCESS_KEY_ID BACKUP_SECRET_ACCESS_KEY
   export RCLONE_CONFIG_DEST_TYPE=s3
-  # Overridable so the whole thing can be rehearsed against a local MinIO before it
+  # Overridable so the whole thing can be rehearsed against a local S3 before it
   # is ever pointed at the real bucket.
   export RCLONE_CONFIG_DEST_PROVIDER="${BACKUP_PROVIDER:-Cloudflare}"
   export RCLONE_CONFIG_DEST_REGION="${BACKUP_REGION:-auto}"
