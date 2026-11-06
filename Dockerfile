@@ -29,10 +29,14 @@ RUN apt-get update \
 # rebuild a year from now produces the same image.
 ARG RCLONE_VERSION=1.75.0
 # No default: BuildKit fills TARGETARCH in automatically, and giving it one here
-# would override that and fetch an amd64 package on an arm64 builder.
+# would override that and fetch an amd64 package on an arm64 builder. Not every
+# builder does, though -- rock8's leaves it empty, and the URL then ends in
+# `linux-.deb` (404). So fall back to the architecture of the image being built,
+# which is the right answer whenever TARGETARCH is missing.
 ARG TARGETARCH
-RUN curl -fsSL -o /tmp/rclone.deb \
-  "https://downloads.rclone.org/v${RCLONE_VERSION}/rclone-v${RCLONE_VERSION}-linux-${TARGETARCH}.deb" \
+RUN arch="${TARGETARCH:-$(dpkg --print-architecture)}" \
+  && curl -fsSL -o /tmp/rclone.deb \
+  "https://downloads.rclone.org/v${RCLONE_VERSION}/rclone-v${RCLONE_VERSION}-linux-${arch}.deb" \
   && dpkg -i /tmp/rclone.deb \
   && rm /tmp/rclone.deb
 
