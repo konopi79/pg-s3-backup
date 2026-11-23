@@ -168,6 +168,14 @@ restore that is the correct behaviour and `into` keeps it; for the drill it woul
 needing an identical server to hand, and a drill that can only run in one place is a
 drill that does not get run.
 
+For the same reason it leaves out what is in the platform's own schemas (`SKIP_SCHEMAS`, default
+`metric_helpers user_management`, `verify` only). rock8 puts them into every database,
+and `metric_helpers` holds a function returning `SETOF public.pg_stat_statements`: with
+the extension skipped, that function fails with `type "public.pg_stat_statements" does
+not exist` and the drill stops before reaching a single application table. They hold no
+application data; the schemas themselves are still created, empty. Set `SKIP_SCHEMAS=`
+(empty) to restore their contents as well.
+
 The same drill against a local Postgres with SeaweedFS standing in for the destination
 (`BACKUP_PROVIDER=SeaweedFS`) is how this is tested before it is pointed at anything real.
 Both `PG_MAJOR` findings above came out of exactly that rehearsal.

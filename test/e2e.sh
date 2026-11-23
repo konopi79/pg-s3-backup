@@ -112,6 +112,21 @@ docker exec "$PG" psql -U postgres --quiet -c "CREATE DATABASE $APP_DB;"
 docker exec "$PG" psql -U postgres -d "$APP_DB" --quiet -c "
   CREATE TABLE notes (id serial PRIMARY KEY, body text NOT NULL, at timestamptz DEFAULT now());
   INSERT INTO notes (body) SELECT md5(g::text) || repeat('x', 40) FROM generate_series(1, $ROWS) g;"
+
+say "seed: the platform's own schemas, as a rock8 database carries them"
+# What stopped the drill on a real rock8 dump: a schema that is the platform's, not
+# the application's, with an object built on an extension. The drill skips the
+# extension, so without SKIP_SCHEMAS this function fails to restore with
+# 'type "public.pg_stat_statements" does not exist' and nothing after it lands.
+docker exec "$PG" psql -U postgres -d "$APP_DB" --quiet -c '
+  CREATE EXTENSION pg_stat_statements;
+  CREATE SCHEMA metric_helpers;
+  CREATE FUNCTION metric_helpers.pg_stat_statements(showtext boolean)
+    RETURNS SETOF public.pg_stat_statements LANGUAGE sql IMMUTABLE STRICT
+    AS $$ SELECT * FROM public.pg_stat_statements(showtext) $$;
+  CREATE SCHEMA user_management;
+  CREATE FUNCTION user_management.random_password(length integer) RETURNS text
+    LANGUAGE sql AS $$ SELECT md5(random()::text) $$;'
 for n in 1 2 3; do printf 'upload %s\n' "$n" >"$WORK/file$n.txt"; done
 s3 copy /w "d:$SRC_BUCKET" --include 'file?.txt'
 

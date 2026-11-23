@@ -89,9 +89,21 @@ cmd_into() {
     trap 'rm -rf "$TMPDIR_RESTORE"' EXIT
     stream_dump "$key" >"$TMPDIR_RESTORE/dump"
     pg_restore --list "$TMPDIR_RESTORE/dump" | grep -v 'EXTENSION' >"$TMPDIR_RESTORE/toc"
+    # Skipping an extension is not enough on its own: a managed Postgres also brings
+    # schemas of its own whose objects are built on those extensions -- rock8 dumps
+    # carry `metric_helpers` (a function returning SETOF public.pg_stat_statements)
+    # and `user_management` -- and the first of them stops the drill with "type ...
+    # does not exist". They belong to the platform, not to the application, so the
+    # drill leaves them out too. Space-separated; set SKIP_SCHEMAS= to keep them.
+    local -a skip_schemas=()
+    local schema
+    for schema in ${SKIP_SCHEMAS-metric_helpers user_management}; do
+      skip_schemas+=(--exclude-schema="$schema")
+    done
     pg_restore --dbname="$target" --no-owner --no-privileges --clean --if-exists \
-      --exit-on-error --use-list="$TMPDIR_RESTORE/toc" "$TMPDIR_RESTORE/dump"
-    log "restore ok (extensions skipped)"
+      --exit-on-error --use-list="$TMPDIR_RESTORE/toc" "${skip_schemas[@]}" \
+      "$TMPDIR_RESTORE/dump"
+    log "restore ok (extensions and platform schemas skipped)"
   else
     stream_dump "$key" |
       pg_restore --dbname="$target" --no-owner --no-privileges --clean --if-exists --exit-on-error
